@@ -1,0 +1,76 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+
+<body>
+    <p id="message"></p>
+    <button id="createBindingAndDisplayDialog">Create Binding and Display Dialog (Throws error)</button>
+    <button id="updateContentsAndDialog">Update Cell contents and Display Dialog (Doesn't throw error)</button>
+</body>
+
+<script>
+    Office.onReady(() => {
+        document.getElementById("createBindingAndDisplayDialog").onclick = createBindingAndDisplayDialog;
+        document.getElementById("updateContentsAndDialog").onclick = updateContentsAndDialog;
+    });
+
+    function createBindingAndDisplayDialog() {
+        Excel.run(async (context) => {
+            const bindingId = 'my-binding';
+            const binding = context.workbook.bindings.getItemOrNullObject(bindingId);
+            await context.sync();
+            if (!binding.isNullObject) {
+                binding.delete();
+            }
+            await context.sync();
+            context.workbook.bindings.add('A1:B2', 'Range', bindingId);
+            Office.context.ui.displayDialogAsync(
+                'https://localhost:3000/dialog.html',
+                {
+                    width: 20,
+                    height: 20,
+                    promptBeforeOpen: false,
+                    displayInIframe: true,
+                },
+                (result) => {
+                    result.value.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+                        // this even will never get invoked because the dialog encounters some OfficeJs API error
+                        document.getElementById("message").innerText = arg.message;
+                        result.value.close();
+                    });
+                }
+            );
+            await context.sync();
+        });
+    }
+
+    function updateContentsAndDialog() {
+        Excel.run(async (context) => {
+            context.workbook.worksheets.getActiveWorksheet().getRange("A1:B4").values = [['1', '2'],['3', '4'],['5', '6'],['7', '8']];
+            Office.context.ui.displayDialogAsync(
+                'https://localhost:3000/dialog.html',
+                {
+                    width: 20,
+                    height: 20,
+                    promptBeforeOpen: false,
+                    displayInIframe: true,
+                },
+                (result) => {
+                    result.value.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+                        document.getElementById("message").innerText = arg.message;
+                        result.value.close();
+                    });
+                }
+            );
+
+            // sync the context to run the previous API call, and return.
+            return context.sync();
+        });
+    }
+</script>
+
+</html>
